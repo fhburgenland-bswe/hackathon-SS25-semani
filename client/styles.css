@@ -1,410 +1,362 @@
-/* Main styles for the chat application */
+/* Basic styling */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    max-width: 1000px;
-    margin: 0 auto;
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
     padding: 20px;
     background-color: #f5f5f5;
 }
 
-h1 {
+h1, h2, h3 {
     color: #333;
-    text-align: center;
-    margin-bottom: 30px;
 }
 
-/* Main container layout */
-.container {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 20px;
+/* Buttons and form elements */
+button {
+    cursor: pointer;
 }
 
-/* Chat container styles */
-.chat-container {
+input, select {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* Login Form */
+#loginForm {
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+#loginError {
+    color: #e74c3c;
+    background-color: #fadbd8;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    display: none;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
     border: 1px solid #ddd;
-    border-radius: 10px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    height: 80vh;
-    background-color: #fff;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    box-sizing: border-box;
 }
 
-.chat-header {
-    background-color: #003366;
-    padding: 15px;
-    display: flex;
-    align-items: center;
+.btn {
+    display: inline-block;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.btn-primary {
+    background-color: #3498db;
     color: white;
 }
 
-select {
-    margin-left: 10px;
-    padding: 8px;
-    border-radius: 5px;
-    border: 1px solid #ddd;
-    background-color: white;
-}
-
-/* Message display area */
-.chat-messages {
-    flex-grow: 1;
-    padding: 15px;
-    overflow-y: auto;
-    background-color: #f9f9f9;
-}
-
-/* Add this to your existing CSS or create a new style.css file */
-
-.message {
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background-color: #f1f1f1;
-    max-width: 85%;
-    position: relative;
-    word-break: break-word;
-  }
-  
-  .message.user {
-    margin-left: auto;
-    margin-right: 0;
-    background-color: #e3f2fd;
-  }
-  
-  .message-timestamp {
-    display: block;
+.login-info {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+    font-size: 0.9em;
     color: #666;
-    font-size: 0.75rem;
-    margin-bottom: 2px;
-  }
-  
-  .message-user {
-    color: #555;
+}
+
+.login-info ul {
+    padding-left: 20px;
+}
+
+/* Chat container */
+#chatContainer {
+    max-width: 800px;
+    margin: 0 auto;
+    display: none;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
+#currentUser {
+    margin-right: 10px;
     font-weight: bold;
-    font-size: 0.85rem;
-  }
-  
-  .message-text {
-    display: inline-block;
-    margin-top: 4px;
-  }
-  
-  .edit-button, .delete-button {
-    background-color: transparent;
+}
+
+#logoutBtn {
+    background-color: #e74c3c;
+    color: white;
     border: none;
-    cursor: pointer;
-    font-size: 0.8rem;
-    padding: 2px 5px;
-    margin-left: 5px;
-    border-radius: 3px;
-    transition: background-color 0.2s;
-  }
-  
-  .edit-button {
-    color: #2196F3;
-  }
-  
-  .delete-button {
-    color: #F44336;
-  }
-  
-  .edit-button:hover, .delete-button:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-  
-  .edit-input {
-    width: 80%;
-    padding: 5px;
-    border: 1px solid #ccc;
+    padding: 5px 10px;
     border-radius: 4px;
-  }
-  
-  #chatMessages {
+}
+
+/* Message display */
+#chatMessages {
     height: 400px;
     overflow-y: auto;
     padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background-color: #fff;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  /* For deleted messages */
-  .message.user .message-text {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: white;
+    margin-bottom: 10px;
+}
+
+.message {
+    margin-bottom: 15px;
+    max-width: 80%;
+    clear: both;
+    position: relative;
+}
+
+.my-message {
+    float: right;
+}
+
+.other-message {
+    float: left;
+}
+
+.message-content {
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.my-message .message-content {
+    background-color: #dcf8c6;
+    border-radius: 8px 0 8px 8px;
+}
+
+.other-message .message-content {
+    background-color: white;
+    border-radius: 0 8px 8px 8px;
+    border: 1px solid #e5e5e5;
+}
+
+.message-sender {
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.message-timestamp {
+    font-size: 0.7em;
+    color: #888;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.message-text-container {
+    word-wrap: break-word;
+}
+
+.message-buttons {
+    margin-top: 5px;
+    text-align: right;
+}
+
+.message.deleted .message-text {
     font-style: italic;
     color: #999;
-  }
-
-.message.user {
-    background-color: #e1ffc7;
-    margin-left: auto;
 }
 
-.message button {
+/* Buttons for messages */
+.edit-button, .delete-button, .save-button, .cancel-button {
+    background: none;
+    border: none;
     font-size: 0.8em;
-    padding: 3px 8px;
-    background-color: #f3f3f3;
-    border: 1px solid #ddd;
-    border-radius: 4px;
     cursor: pointer;
     margin-left: 5px;
-    transition: background-color 0.2s;
 }
 
-.message button:hover {
-    background-color: #e0e0e0;
+.edit-button, .save-button {
+    color: #3498db;
 }
 
-/* Chat input area */
-.chat-input-container {
-    padding: 15px;
-    background-color: #f3f3f3;
-    display: flex;
-    border-top: 1px solid #ddd;
+.delete-button, .cancel-button {
+    color: #e74c3c;
 }
 
-.chat-input-container input {
-    flex-grow: 1;
-    padding: 10px 15px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
-    margin-right: 10px;
-    font-size: 14px;
+.edit-button:hover, .delete-button:hover, 
+.save-button:hover, .cancel-button:hover {
+    text-decoration: underline;
 }
 
-.chat-input-container button {
-    padding: 10px 20px;
-    background-color: #003366;
-    color: white;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.chat-input-container button:hover {
-    background-color: #004488;
-}
-
-/* Sidebar styles */
-.sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.sidebar-widget {
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 15px;
-    background-color: #fff;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.sidebar-widget button {
-    padding: 8px 15px;
-    background-color: #003366;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+.edit-input {
     width: 100%;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+.edit-buttons {
+    margin-top: 5px;
+    text-align: right;
+}
+
+/* Input area */
+#chatForm {
+    display: flex;
     margin-bottom: 15px;
-    transition: background-color 0.2s;
 }
 
-.sidebar-widget button:hover {
-    background-color: #004488;
+#chatInput {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px 0 0 4px;
+    margin-right: 0;
 }
 
-/* Lektoren list styles */
+#chatForm button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Course selection */
+#lvSelect {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+/* Toggle button */
+#toggleLektorenBtn {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+/* Lektor list */
+#lektorList {
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 .lektor-entry {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     padding-bottom: 15px;
     border-bottom: 1px solid #eee;
 }
 
 .lektor-entry:last-child {
-    border-bottom: none;
     margin-bottom: 0;
     padding-bottom: 0;
+    border-bottom: none;
 }
 
 .lektor-info-line {
     display: flex;
     align-items: center;
-    margin-top: 8px;
+    margin-bottom: 5px;
 }
 
 .lektor-info-line span:first-child {
     margin-right: 10px;
     width: 20px;
+    text-align: center;
 }
 
-.email-link {
-    color: #003366;
+.email-link, .tel-link {
+    color: #3498db;
     text-decoration: none;
 }
 
-.email-link:hover {
+.email-link:hover, .tel-link:hover {
     text-decoration: underline;
-}
-
-.tel-link {
-    color: #003366;
-    text-decoration: none;
-}
-
-.sprechzeit {
-    font-style: italic;
 }
 
 /* Loading indicator */
 #loading {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 51, 102, 0.95);
-    color: white;
-    padding: 15px 30px;
-    border-radius: 10px;
-    font-size: 1.2rem;
-    font-weight: bold;
-    z-index: 9999;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    display: none; /* bleibt unsichtbar bis aktiv */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255,255,255,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    display: none;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
-    .container {
-        grid-template-columns: 1fr;
+@media (max-width: 600px) {
+    .message {
+        max-width: 90%;
     }
     
-    .chat-container {
-        height: 60vh;
+    #chatContainer {
+        padding: 10px;
+    }
+    
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .user-info {
+        margin-top: 10px;
     }
 }
 
-@media (max-width: 480px) {
-    .chat-container {
-        height: auto;
-    }
-
-    .chat-input-container {
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .chat-input-container input,
-    .chat-input-container button {
-        width: 100%;
-    }
-
-    .message {
-        max-width: 90%;
-        font-size: 0.9rem;
-    }
-
-    .chat-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .lektor-info-line {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    select {
-        width: 100%;
-    }
-
-    @media (max-width: 480px) {
-        body {
-            font-size: 14px;
-        }
-    
-        h1 {
-            font-size: 1.5rem;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .sidebar-widget button {
-            width: 100%;
-            padding: 12px;
-            font-size: 1rem;
-        }
-    
-        .chat-input-container button {
-            font-size: 1rem;
-        }
-    }
-
-    * {
-        transition: all 0.2s ease-in-out;
-    }
-
-    @media (max-width: 360px) {
-        h1 {
-            font-size: 1.2rem;
-        }
-    
-        .chat-container {
-            height: auto;
-            padding: 10px;
-        }
-    
-        .chat-input-container {
-            flex-direction: column;
-            gap: 8px;
-            padding: 10px;
-        }
-    
-        .chat-input-container input,
-        .chat-input-container button {
-            width: 100%;
-            font-size: 0.9rem;
-            padding: 10px;
-        }
-    
-        .message {
-            font-size: 0.85rem;
-            padding: 8px 10px;
-            max-width: 95%;
-        }
-    
-        .sidebar-widget {
-            padding: 10px;
-            font-size: 0.9rem;
-        }
-    
-        .sidebar-widget button {
-            font-size: 0.9rem;
-            padding: 10px;
-        }
-    
-        .lektor-info-line {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-    
-        .email-link {
-            font-size: 0.85rem;
-            word-break: break-all;
-        }
-    
-        select {
-            width: 100%;
-            font-size: 0.9rem;
-        }
-    }    
-    
+/* Clear fix for the chat messages container */
+#chatMessages::after {
+    content: "";
+    display: table;
+    clear: both;
 }
