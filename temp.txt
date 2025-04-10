@@ -1,0 +1,46 @@
+client.js:116 
+ POST http://localhost:3000/api/messages 401 (Unauthorized)
+saveMessage	@	client.js:116
+(anonymous)	@	client.js:210
+
+client.js:56 API Error: Error: Failed to save message
+    at saveMessage (client.js:123:37)
+    at async HTMLFormElement.<anonymous> (client.js:210:34)
+handleError	@	client.js:56
+saveMessage	@	client.js:126
+await in saveMessage		
+(anonymous)
+
+
+
+
+client.js:65 
+ GET http://localhost:3000/api/preferences/user_2s4xtwt0p 404 (Not Found)
+loadUserPreference	@	client.js:65
+initApp	@	client.js:178
+(anonymous)	@	client.js:371
+
+client.js:70 Error loading user preference: Error: Failed to load user preference
+    at loadUserPreference (client.js:66:37)
+    at async initApp (client.js:178:33)
+loadUserPreference	@	client.js:70
+await in loadUserPreference		
+initApp	@	client.js:178
+(anonymous)	@	client.js:371
+client.js:100 
+ GET http://localhost:3000/api/messages/mathematik 404 (Not Found)
+loadMessages	@	client.js:100
+initApp	@	client.js:185
+await in initApp		
+(anonymous)	@	client.js:371
+client.js:105 Error loading messages: Error: Failed to load messages
+    at loadMessages (client.js:101:37)
+    at async initApp (client.js:185:24)
+loadMessages	@	client.js:105
+await in loadMessages		
+initApp	@	client.js:185
+await in initApp		
+(anonymous)	@	client.js:371
+___vscode_livepreview_injected_script:36 WebSocket connection to 'ws://127.0.0.1:3001/0bb30ab60e4761f9473679787469bd3f756ddf12' failed: 
+onLoad	@	___vscode_livepreview_injected_script:36
+(anonymous)	@	___vscode_livepreview_injected_script:17
