@@ -1,13 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
     // Backend API URL - use fixed localhost URL for all users in Live Share
     const API_BASE_URL = "http://localhost:3000/api";
-    
+
     // Single shared user ID for all users in the Live Share environment
     const userId = "shared_user";
 
     // Auto-refresh interval in milliseconds (5 seconds)
-    const REFRESH_INTERVAL = 5000;
-    
+    const REFRESH_INTERVAL = 500;
+
     // Variable to store the refresh interval ID so we can cancel it if needed
     let refreshIntervalId = null;
 
@@ -60,15 +60,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Handle API errors with more detailed error reporting
     function handleError(error) {
         console.error("API Error:", error);
-        
+
         // More informative error message
         let errorMessage = "An error occurred: " + (error.message || "Unknown error");
-        
+
         // Add status code if available
         if (error.status) {
             errorMessage += ` (Status: ${error.status})`;
         }
-        
+
         // Only show alert on serious errors, not auto-refresh failures
         if (!error.silent) {
             alert(errorMessage + "\nPlease check the console for more details.");
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function fetchAPI(url, options = {}) {
         try {
             const response = await fetch(url, options);
-            
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 const error = new Error(errorData.error || `HTTP error ${response.status}`);
@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 error.silent = options.silent || false;
                 throw error;
             }
-            
+
             return await response.json();
         } catch (error) {
             console.error(`API Error (${url}):`, error);
@@ -102,8 +102,14 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             // Make the API request
             const data = await fetchAPI(`${API_BASE_URL}/messages/${courseId}`, { silent });
+
+            // Sort messages by timestamp (oldest first, newest last)
+            const sortedData = data.sort((a, b) => {
+                return new Date(a.timestamp) - new Date(b.timestamp);
+            });
+
             if (!silent) hideLoading();
-            return data;
+            return sortedData;
         } catch (error) {
             // If it's a silent refresh, don't show alerts or loading indicators
             if (silent) {
@@ -175,47 +181,28 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             // Use silent mode to avoid showing loading indicator during auto-refresh
             const newMessages = await loadMessages(currentLV, true);
-            
+
             // If we got messages back and they're different from what we have
-            if (newMessages && newMessages.length !== messages.length) {
+            if (newMessages && JSON.stringify(newMessages) !== JSON.stringify(messages)) {
                 // Save scroll position before updating
                 const scrollPosition = chatMessages.scrollTop;
                 const scrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 5;
-                
+
                 // Update messages array and render
                 messages = newMessages;
                 renderMessages(messages);
-                
+
                 // Restore scroll position or scroll to bottom if user was already at bottom
                 if (scrolledToBottom) {
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 } else {
                     chatMessages.scrollTop = scrollPosition;
                 }
-            } else if (newMessages && messagesChanged(messages, newMessages)) {
-                // If message content has changed (edits or deletions)
-                messages = newMessages;
-                renderMessages(messages);
             }
         } catch (error) {
             console.error("Auto-refresh failed:", error);
             // Don't show alerts for refresh failures
         }
-    }
-
-    // Helper function to check if messages have changed (content, not just count)
-    function messagesChanged(oldMessages, newMessages) {
-        if (oldMessages.length !== newMessages.length) return true;
-        
-        // Create maps for faster lookup
-        const oldMap = new Map(oldMessages.map(msg => [msg.id, msg]));
-        
-        // Check if any message has changed
-        return newMessages.some(newMsg => {
-            const oldMsg = oldMap.get(newMsg.id);
-            if (!oldMsg) return true; // New message
-            return oldMsg.text !== newMsg.text || oldMsg.isDeleted !== newMsg.isDeleted;
-        });
     }
 
     // Start the auto-refresh interval
@@ -224,7 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (refreshIntervalId) {
             clearInterval(refreshIntervalId);
         }
-        
+
         // Set up new interval
         refreshIntervalId = setInterval(refreshMessages, REFRESH_INTERVAL);
         console.log("Auto-refresh started");
@@ -246,14 +233,17 @@ document.addEventListener("DOMContentLoaded", () => {
             // Always use "mathematik" as the default course
             currentLV = "mathematik";
             lvSelect.value = currentLV;
-            
+
             // Load messages for current course
             messages = await loadMessages(currentLV);
             renderMessages(messages);
-            
+
+            // Scroll to bottom to see the latest messages
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
             // Set up event listeners
             setupEventListeners();
-            
+
             // Start auto-refresh
             startAutoRefresh();
         } catch (error) {
@@ -268,14 +258,17 @@ document.addEventListener("DOMContentLoaded", () => {
         // Course selection change - simplified
         lvSelect.addEventListener("change", async () => {
             currentLV = lvSelect.value;
-            
+
             // Restart auto-refresh when changing courses
             stopAutoRefresh();
-            
+
             // Load messages for new course
             messages = await loadMessages(currentLV);
             renderMessages(messages);
-            
+
+            // Scroll to bottom to see latest messages
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
             // Restart auto-refresh
             startAutoRefresh();
         });
@@ -292,10 +285,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 // This ensures consistency with what's in the database
                 messages = await loadMessages(currentLV);
                 renderMessages(messages);
-                
+
                 // Clear the input field
                 chatInput.value = "";
-                
+
                 // Scroll to bottom to show the new message
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
@@ -334,6 +327,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderMessages(msgArray) {
         chatMessages.innerHTML = "";
+
+        // Render messages in chronological order (oldest first, newest last)
         msgArray.forEach(messageObj => appendMessage(messageObj));
     }
 
@@ -342,9 +337,25 @@ document.addEventListener("DOMContentLoaded", () => {
         message.dataset.id = messageObj.id;
         message.classList.add("message", "user");
 
+        // Add timestamp
+        const timestampSpan = document.createElement("small");
+        const messageDate = new Date(messageObj.timestamp);
+        timestampSpan.textContent = formatTimestamp(messageDate);
+        timestampSpan.classList.add("message-timestamp");
+        message.appendChild(timestampSpan);
+
+        // Add user ID (first 6 chars only) - with safety check for undefined
+        const userSpan = document.createElement("small");
+        // Check if userId exists and handle the case where it's undefined
+        const userIdText = messageObj.userId ? messageObj.userId.substring(0, 6) : 'anonymous';
+        userSpan.textContent = ` (${userIdText}): `;
+        userSpan.classList.add("message-user");
+        message.appendChild(userSpan);
+
         // Create text span
         const textSpan = document.createElement("span");
         textSpan.textContent = messageObj.text;
+        textSpan.classList.add("message-text");
         message.appendChild(textSpan);
 
         // Add a space after text
@@ -355,6 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Edit button
             const editButton = document.createElement("button");
             editButton.textContent = "Edit";
+            editButton.classList.add("edit-button");
             editButton.addEventListener("click", () => editMessage(messageObj.id));
             message.appendChild(editButton);
 
@@ -364,11 +376,30 @@ document.addEventListener("DOMContentLoaded", () => {
             // Delete button
             const deleteButton = document.createElement("button");
             deleteButton.textContent = "Delete";
+            deleteButton.classList.add("delete-button");
             deleteButton.addEventListener("click", () => deleteMessage(messageObj.id));
             message.appendChild(deleteButton);
         }
 
         chatMessages.appendChild(message);
+    }
+
+    // Format timestamp to a nice readable format
+    function formatTimestamp(date) {
+        const now = new Date();
+        const isToday = date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+
+        // Format: HH:MM for today, DD.MM.YYYY HH:MM for other days
+        const timeString = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        if (isToday) {
+            return timeString;
+        } else {
+            const dateString = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return `${dateString} ${timeString}`;
+        }
     }
 
     async function deleteMessage(messageId) {
@@ -378,11 +409,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Instead of just updating the array, refresh all messages
                 messages = await loadMessages(currentLV);
                 renderMessages(messages);
+
+                // Keep user at current scroll position
+                chatMessages.scrollTop = chatMessages.scrollTop;
             }
         }
     }
 
     async function editMessage(messageId) {
+        stopAutoRefresh(); // Pause auto-refresh during editing
+
         const messageToEdit = messages.find(msg => msg.id === messageId);
         if (!messageToEdit || messageToEdit.isDeleted) return;
 
@@ -399,6 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const editInput = document.createElement("input");
         editInput.type = "text";
         editInput.value = currentText;
+        editInput.classList.add("edit-input");
         messageElement.appendChild(editInput);
 
         // Add space
@@ -410,18 +447,22 @@ document.addEventListener("DOMContentLoaded", () => {
         saveButton.addEventListener("click", async () => {
             const newText = editInput.value.trim();
             if (newText !== "") {
-                // Temporarily pause auto-refresh during edit
-                stopAutoRefresh();
-                
                 const updatedMessage = await updateMessage(messageId, { text: newText });
                 if (updatedMessage) {
                     // Refresh all messages to ensure consistency
                     messages = await loadMessages(currentLV);
                     renderMessages(messages);
+
+                    // Try to keep the user at approximately the same position
+                    const messageElements = document.querySelectorAll('.message');
+                    for (let i = 0; i < messageElements.length; i++) {
+                        if (messageElements[i].dataset.id === messageId) {
+                            messageElements[i].scrollIntoView({ behavior: 'auto', block: 'nearest' });
+                            break;
+                        }
+                    }
                 }
-                
-                // Resume auto-refresh
-                startAutoRefresh();
+                startAutoRefresh(); // Resume auto-refresh
             }
         });
         messageElement.appendChild(saveButton);
@@ -435,6 +476,7 @@ document.addEventListener("DOMContentLoaded", () => {
         cancelButton.addEventListener("click", () => {
             // Restore original content
             messageElement.innerHTML = originalContent;
+            startAutoRefresh(); // Resume auto-refresh
         });
         messageElement.appendChild(cancelButton);
 
