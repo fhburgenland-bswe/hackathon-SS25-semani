@@ -5,6 +5,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // Single shared user ID for all users in the Live Share environment
     const userId = "shared_user";
 
+    // Auto-refresh interval in milliseconds (5 seconds)
+    const REFRESH_INTERVAL = 5000;
+    
+    // Variable to store the refresh interval ID so we can cancel it if needed
+    let refreshIntervalId = null;
+
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
     const chatMessages = document.getElementById("chatMessages");
@@ -63,7 +69,10 @@ document.addEventListener("DOMContentLoaded", () => {
             errorMessage += ` (Status: ${error.status})`;
         }
         
-        alert(errorMessage + "\nPlease check the console for more details.");
+        // Only show alert on serious errors, not auto-refresh failures
+        if (!error.silent) {
+            alert(errorMessage + "\nPlease check the console for more details.");
+        }
         hideLoading();
     }
 
@@ -76,6 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const errorData = await response.json().catch(() => ({}));
                 const error = new Error(errorData.error || `HTTP error ${response.status}`);
                 error.status = response.status;
+                error.silent = options.silent || false;
                 throw error;
             }
             
@@ -86,27 +96,25 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Load messages for current course - simplified with better error handling
-    async function loadMessages(courseId) {
-        showLoading();
+    // Load messages for current course - now with a silent option for auto-refresh
+    async function loadMessages(courseId, silent = false) {
+        if (!silent) showLoading();
         try {
-            // First check if the server is running by making a simple request
-            try {
-                const data = await fetchAPI(`${API_BASE_URL}/messages/${courseId}`);
-                hideLoading();
-                return data;
-            } catch (error) {
-                // If the error is likely due to server not running, provide clearer message
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    throw new Error('Server is not running. Please start the server first.');
-                }
-                throw error;
-            }
+            // Make the API request
+            const data = await fetchAPI(`${API_BASE_URL}/messages/${courseId}`, { silent });
+            if (!silent) hideLoading();
+            return data;
         } catch (error) {
-            console.error("Error loading messages:", error);
-            alert(`Failed to load messages: ${error.message}`);
-            hideLoading();
-            return [];
+            // If it's a silent refresh, don't show alerts or loading indicators
+            if (silent) {
+                console.log("Silent refresh failed, will try again later");
+                return messages; // Return current messages if refresh fails
+            } else {
+                console.error("Error loading messages:", error);
+                alert(`Failed to load messages: ${error.message}`);
+                hideLoading();
+                return [];
+            }
         }
     }
 
@@ -162,6 +170,75 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Function to refresh messages automatically
+    async function refreshMessages() {
+        try {
+            // Use silent mode to avoid showing loading indicator during auto-refresh
+            const newMessages = await loadMessages(currentLV, true);
+            
+            // If we got messages back and they're different from what we have
+            if (newMessages && newMessages.length !== messages.length) {
+                // Save scroll position before updating
+                const scrollPosition = chatMessages.scrollTop;
+                const scrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 5;
+                
+                // Update messages array and render
+                messages = newMessages;
+                renderMessages(messages);
+                
+                // Restore scroll position or scroll to bottom if user was already at bottom
+                if (scrolledToBottom) {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                } else {
+                    chatMessages.scrollTop = scrollPosition;
+                }
+            } else if (newMessages && messagesChanged(messages, newMessages)) {
+                // If message content has changed (edits or deletions)
+                messages = newMessages;
+                renderMessages(messages);
+            }
+        } catch (error) {
+            console.error("Auto-refresh failed:", error);
+            // Don't show alerts for refresh failures
+        }
+    }
+
+    // Helper function to check if messages have changed (content, not just count)
+    function messagesChanged(oldMessages, newMessages) {
+        if (oldMessages.length !== newMessages.length) return true;
+        
+        // Create maps for faster lookup
+        const oldMap = new Map(oldMessages.map(msg => [msg.id, msg]));
+        
+        // Check if any message has changed
+        return newMessages.some(newMsg => {
+            const oldMsg = oldMap.get(newMsg.id);
+            if (!oldMsg) return true; // New message
+            return oldMsg.text !== newMsg.text || oldMsg.isDeleted !== newMsg.isDeleted;
+        });
+    }
+
+    // Start the auto-refresh interval
+    function startAutoRefresh() {
+        // Clear any existing interval first
+        if (refreshIntervalId) {
+            clearInterval(refreshIntervalId);
+        }
+        
+        // Set up new interval
+        refreshIntervalId = setInterval(refreshMessages, REFRESH_INTERVAL);
+        console.log("Auto-refresh started");
+    }
+
+    // Stop the auto-refresh interval
+    function stopAutoRefresh() {
+        if (refreshIntervalId) {
+            clearInterval(refreshIntervalId);
+            refreshIntervalId = null;
+            console.log("Auto-refresh stopped");
+        }
+    }
+
     // Initialize the app - simplified to skip user preferences
     async function initApp() {
         showLoading();
@@ -176,6 +253,9 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // Set up event listeners
             setupEventListeners();
+            
+            // Start auto-refresh
+            startAutoRefresh();
         } catch (error) {
             console.error("Error initializing app:", error);
             alert(`Failed to initialize app: ${error.message}`);
@@ -188,9 +268,16 @@ document.addEventListener("DOMContentLoaded", () => {
         // Course selection change - simplified
         lvSelect.addEventListener("change", async () => {
             currentLV = lvSelect.value;
-            // Skip saving user preference
+            
+            // Restart auto-refresh when changing courses
+            stopAutoRefresh();
+            
+            // Load messages for new course
             messages = await loadMessages(currentLV);
             renderMessages(messages);
+            
+            // Restart auto-refresh
+            startAutoRefresh();
         });
 
         // Form submission (new message)
@@ -201,9 +288,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const savedMessage = await saveMessage(currentLV, messageText);
             if (savedMessage) {
-                messages.push(savedMessage);
-                appendMessage(savedMessage);
+                // Instead of just adding to the array, refresh all messages
+                // This ensures consistency with what's in the database
+                messages = await loadMessages(currentLV);
+                renderMessages(messages);
+                
+                // Clear the input field
                 chatInput.value = "";
+                
+                // Scroll to bottom to show the new message
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         });
 
@@ -217,6 +311,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 lektorList.style.display = "none";
                 toggleBtn.textContent = "📋 Lektoren anzeigen";
             }
+        });
+
+        // Handle page visibility changes to conserve resources
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Page is hidden, slow down refresh to save resources
+                stopAutoRefresh();
+                refreshIntervalId = setInterval(refreshMessages, REFRESH_INTERVAL * 2);
+            } else {
+                // Page is visible again, restore normal refresh rate
+                stopAutoRefresh();
+                startAutoRefresh();
+            }
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            stopAutoRefresh();
         });
     }
 
@@ -257,21 +369,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         chatMessages.appendChild(message);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     async function deleteMessage(messageId) {
         if (confirm("Are you sure you want to delete this message?")) {
             const success = await deleteMessageApi(messageId);
             if (success) {
-                // Update local messages array
-                const index = messages.findIndex(msg => msg.id === messageId);
-                if (index !== -1) {
-                    messages[index].isDeleted = true;
-                    messages[index].originalText = messages[index].originalText || messages[index].text;
-                    messages[index].text = "Message deleted";
-                    renderMessages(messages);
-                }
+                // Instead of just updating the array, refresh all messages
+                messages = await loadMessages(currentLV);
+                renderMessages(messages);
             }
         }
     }
@@ -282,6 +388,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const messageElement = document.querySelector(`[data-id="${messageId}"]`);
         const currentText = messageToEdit.text;
+
+        // Store the original content for restoration if editing is cancelled
+        const originalContent = messageElement.innerHTML;
 
         // Clear the message element
         messageElement.innerHTML = "";
@@ -301,15 +410,18 @@ document.addEventListener("DOMContentLoaded", () => {
         saveButton.addEventListener("click", async () => {
             const newText = editInput.value.trim();
             if (newText !== "") {
+                // Temporarily pause auto-refresh during edit
+                stopAutoRefresh();
+                
                 const updatedMessage = await updateMessage(messageId, { text: newText });
                 if (updatedMessage) {
-                    // Update the message in our local array
-                    const index = messages.findIndex(msg => msg.id === messageId);
-                    if (index !== -1) {
-                        messages[index] = updatedMessage;
-                        renderMessages(messages);
-                    }
+                    // Refresh all messages to ensure consistency
+                    messages = await loadMessages(currentLV);
+                    renderMessages(messages);
                 }
+                
+                // Resume auto-refresh
+                startAutoRefresh();
             }
         });
         messageElement.appendChild(saveButton);
@@ -321,7 +433,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const cancelButton = document.createElement("button");
         cancelButton.textContent = "Cancel";
         cancelButton.addEventListener("click", () => {
-            renderMessages(messages);
+            // Restore original content
+            messageElement.innerHTML = originalContent;
         });
         messageElement.appendChild(cancelButton);
 
