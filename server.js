@@ -1,4 +1,3 @@
-// server.js - Express server with MongoDB integration and user authentication
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
@@ -6,174 +5,117 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
 const session = require('express-session');
+const cookieParser = require('cookie-parser'); // ✅ Added
 
 const app = express();
+app.set('trust proxy', 1);  // ✅ Trust proxy
+
 const port = process.env.PORT || 3000;
 
-// CORS configuration - important for client-server communication
+// CORS config
 app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true, // Important for cookies/session
+  origin: 'http://localhost:3000', // Explicitly set your client origin
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Body parser setup
+// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser()); // ✅ Required for sessions
 
-// Session configuration - UPDATED
+// Session config
 app.use(session({
   secret: 'chat-app-secret-key',
-  resave: false, // Changed from true
-  saveUninitialized: false, // Changed from true
-  cookie: { 
-    secure: false, // Changed to false for non-HTTPS development
-    maxAge: 3600000,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Force false for local development
+    sameSite: 'lax', // Use 'lax' instead of 'none'
     httpOnly: true,
-    sameSite: 'lax' // Added for compatibility with modern browsers
+    maxAge: 3600000
   }
 }));
 
-// Serve static files - adjust path based on your file structure
+// Static files
 app.use(express.static(path.join(__dirname, 'client')));
 
-// MongoDB Connection String
+// MongoDB setup
 const uri = "mongodb+srv://semani:O125E33Jo8C8qEsW@cluster0.azieuf5.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-// Database and Collection names
 const dbName = 'chat_app';
 const messagesCollection = 'messages';
 const userPrefsCollection = 'user_preferences';
 
-// Load users from JSON file
 let users = [];
 try {
-  const usersData = fs.readFileSync(path.join(__dirname, 'users.json'), 'utf8');
+  const usersData = fs.readFileSync(
+    path.join(
+      __dirname,
+      'users.json'
+    ), 'utf8');
   users = JSON.parse(usersData);
-  console.log('Loaded users from users.json:', users);
-} catch (error) {
-  console.error('Error loading users from file:', error);
-  // Default users if file cannot be read
+} catch {
   users = [
-    {
-      "username": "user1",
-      "password": "password1",
-      "displayName": "User One"
-    },
-    {
-      "username": "user2",
-      "password": "password2",
-      "displayName": "User Two"
-    },
-    {
-      "username": "user3",
-      "password": "password3",
-      "displayName": "User Three"
-    }
+    { username: "user1", password: "password1", displayName: "User One" },
+    { username: "user2", password: "password2", displayName: "User Two" },
+    { username: "user3", password: "password3", displayName: "User Three" }
   ];
-  console.log('Using default users');
 }
 
-// Function to create a new MongoDB client and connect
+// MongoDB connection
 async function connectToMongo() {
   const client = new MongoClient(uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000
   });
-
-  try {
-    await client.connect();
-    return client;
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    throw error;
-  }
+  await client.connect();
+  return client;
 }
 
-// Simplified database operation function
 async function withDatabase(callback) {
   let client;
   try {
     client = await connectToMongo();
     const db = client.db(dbName);
     return await callback(db);
-  } catch (error) {
-    console.error("Database operation failed:", error);
-    throw error;
   } finally {
-    if (client) {
-      await client.close();
-    }
+    if (client) await client.close();
   }
 }
 
-// Test and initialize the MongoDB connection
 async function testConnection() {
   try {
     await withDatabase(async (db) => {
       await db.command({ ping: 1 });
-      console.log("MongoDB connection test successful");
-
-      // Make sure collections exist
-      const collections = await db.listCollections().toArray();
-      const collectionNames = collections.map(c => c.name);
-
-      // Create collections if they don't exist
-      if (!collectionNames.includes(messagesCollection)) {
-        await db.createCollection(messagesCollection);
-        console.log(`Created ${messagesCollection} collection`);
-      }
-
-      if (!collectionNames.includes(userPrefsCollection)) {
-        await db.createCollection(userPrefsCollection);
-        console.log(`Created ${userPrefsCollection} collection`);
-      }
     });
-
     return true;
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error);
+  } catch {
     return false;
   }
 }
 
-// Start the server but don't wait for MongoDB connection test
-// This allows the server to function even if MongoDB is unavailable
+// Start server
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log(`Access the application at: http://localhost:${port}`);
-  
-  // Test MongoDB connection after server start
-  testConnection()
-    .then(success => {
-      if (success) {
-        console.log("MongoDB connection ready for use");
-      } else {
-        console.warn("Server running without MongoDB connection - using fallback data");
-      }
-    })
-    .catch(error => {
-      console.warn("MongoDB connection test failed, using fallback data:", error);
-    });
+  console.log(`Server running on http://localhost:${port}`);
+  testConnection().then(ready =>
+    console.log(ready ? '✅ MongoDB connected' : '⚠️ Using fallback (no MongoDB)')
+  );
 });
 
 // Authentication middleware
 function requireAuth(req, res, next) {
-  if (req.session && req.session.user) {
-    return next();
-  } else {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
+  if (req.session?.user) return next();
+  res.status(401).json({ error: 'Not authenticated' });
 }
 
-// Serve the HTML file for the root path
+// Root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/index.html'));
 });
 
-// Debug endpoint to check session
+// Debug session info
 app.get('/api/debug/session', (req, res) => {
   res.json({
     session: req.session,
@@ -183,62 +125,42 @@ app.get('/api/debug/session', (req, res) => {
   });
 });
 
-// API Endpoints
+// ✅ Login (with regenerate + save)
 app.post('/api/login', async (req, res) => {
-  try {
-    console.log('Login request received:', req.body);
-    console.log('Current session before login:', req.session);
-    
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      console.log('Missing username or password');
-      return res.status(400).json({ error: 'Username and password are required' });
+  const { username, password } = req.body;
+  const user = users.find(u => u.username === username && u.password === password);
+
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+
+  req.session.regenerate(err => {
+    if (err) {
+      console.error('Session regeneration error:', err);
+      return res.status(500).json({ error: 'Session error' });
     }
-    
-    console.log('Checking user credentials against:', users);
-    // Find user in our loaded users array
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (!user) {
-      console.log('User not found or password does not match');
-      return res.status(401).json({ error: 'Invalid username or password' });
-    }
-    
-    // Set user info in session (without password)
+
     req.session.user = {
       username: user.username,
       displayName: user.displayName
     };
-    
-    // Save the session explicitly
+
     req.session.save(err => {
       if (err) {
         console.error('Session save error:', err);
         return res.status(500).json({ error: 'Failed to save session' });
       }
-      
-      console.log('User logged in successfully:', user.username);
-      console.log('Session after login:', req.session);
-      
-      // Return user info (without password)
-      res.json({
-        username: user.username,
-        displayName: user.displayName
-      });
+
+      console.log('✅ Session stored:', req.session);
+      res.json(req.session.user);
     });
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ error: 'Failed to login: ' + error.message });
-  }
+  });
 });
 
-// User logout
+// Logout
 app.post('/api/logout', (req, res) => {
   req.session.destroy(err => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to logout' });
-    }
+    if (err) return res.status(500).json({ error: 'Logout failed' });
     res.clearCookie('connect.sid');
     res.json({ success: true });
   });
@@ -246,19 +168,16 @@ app.post('/api/logout', (req, res) => {
 
 // Get current user
 app.get('/api/user', (req, res) => {
-  console.log('Current session in /api/user:', req.session);
-  if (req.session && req.session.user) {
-    res.json(req.session.user);
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
-  }
+  if (req.session?.user) res.json(req.session.user);
+  else res.status(401).json({ error: 'Not authenticated' });
 });
+
 
 // Get messages for a specific course
 app.get('/api/messages/:courseId', requireAuth, async (req, res) => {
   try {
     const courseId = req.params.courseId;
-    
+
     // For testing purposes, if MongoDB is unavailable, return mock data
     try {
       const messages = await withDatabase(async (db) => {
@@ -267,7 +186,7 @@ app.get('/api/messages/:courseId', requireAuth, async (req, res) => {
           .sort({ timestamp: 1 })
           .toArray();
       });
-      
+
       res.json(messages);
     } catch (dbError) {
       console.error('Database error, using mock data:', dbError);
