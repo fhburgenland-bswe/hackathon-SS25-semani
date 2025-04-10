@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Backend API URL - automatically use the same origin for API calls
-    const API_BASE_URL = window.location.origin + "/api";
+    // Backend API URL - use fixed localhost URL for all users in Live Share
+    const API_BASE_URL = "http://localhost:3000/api";
     
-    // Simple user ID for demo purposes - in a real app, use proper authentication
-    const userId = "user_" + Math.random().toString(36).substr(2, 9);
-    
+    // Single shared user ID for all users in the Live Share environment
+    const userId = "shared_user";
+
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
     const chatMessages = document.getElementById("chatMessages");
@@ -12,38 +12,38 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleBtn = document.getElementById("toggleLektorenBtn");
     const lektorList = document.getElementById("lektorList");
     const loadingIndicator = document.getElementById("loading");
-    
+
     const lektoren = {
         mathematik: {
             name: "Dipl.-Ing. Dr. Lukas Gnam",
             email: "lukas.gnam@hochschule-burgenland.at",
             telefon: "+43 5 7705-4150",
-            sprechstunde: "Nie!"
+            sprechstunde: "Montag 16:00 - 17:00 Uhr"
         },
         betriebssysteme: {
             name: "Dipl.-Ing. Franz Knipp",
             email: "Franz.Knipp@hochschule-burgenland.at",
             telefon: "+43 5 7705-4341",
-            sprechstunde: "Dienstag, 14:00–16:00 Uhr"
+            sprechstunde: "Dienstag 17:00 - 1:00 Uhr"
         },
         algorithmenUndProgrammiertechniken: {
             name: "Dipl.-Ing.in Patrizia Sailer, BSc, MSc, MBA",
             email: "Patrizia.Sailer@hochschule-burgenland.at",
             telefon: "+43 5 7705-4337",
-            sprechstunde: "Donnerstag, 09:00–11:00 Uhr"
+            sprechstunde: "Mittwoch 16:00 - 17:00 Uhr"
         }
     };
 
     let currentLV = "mathematik"; // Default
     let messages = [];
-    
+
     // Show loading indicator
     function showLoading() {
         if (loadingIndicator) {
             loadingIndicator.style.display = "block";
         }
     }
-    
+
     // Hide loading indicator
     function hideLoading() {
         if (loadingIndicator) {
@@ -51,134 +51,125 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Handle API errors
+    // Handle API errors with more detailed error reporting
     function handleError(error) {
         console.error("API Error:", error);
-        alert("An error occurred. Please try again later.");
+        
+        // More informative error message
+        let errorMessage = "An error occurred: " + (error.message || "Unknown error");
+        
+        // Add status code if available
+        if (error.status) {
+            errorMessage += ` (Status: ${error.status})`;
+        }
+        
+        alert(errorMessage + "\nPlease check the console for more details.");
         hideLoading();
     }
 
-    // Load user preference (selected course)
-    async function loadUserPreference() {
-        showLoading();
+    // Simplified fetch with error handling
+    async function fetchAPI(url, options = {}) {
         try {
-            const response = await fetch(`${API_BASE_URL}/preferences/${userId}`);
-            if (!response.ok) throw new Error("Failed to load user preference");
-            const data = await response.json();
-            return data.selectedCourse;
+            const response = await fetch(url, options);
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const error = new Error(errorData.error || `HTTP error ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+            
+            return await response.json();
         } catch (error) {
-            console.error("Error loading user preference:", error);
-            return "mathematik"; // Default if error
-        } finally {
-            hideLoading();
+            console.error(`API Error (${url}):`, error);
+            throw error;
         }
     }
 
-    // Save user preference (selected course)
-    async function saveUserPreference(courseId) {
-        showLoading();
-        try {
-            const response = await fetch(`${API_BASE_URL}/preferences`, {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ userId, selectedCourse: courseId })
-            });
-            if (!response.ok) throw new Error("Failed to save user preference");
-        } catch (error) {
-            console.error("Error saving user preference:", error);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Load messages for current course
+    // Load messages for current course - simplified with better error handling
     async function loadMessages(courseId) {
         showLoading();
         try {
-            const response = await fetch(`${API_BASE_URL}/messages/${courseId}`);
-            if (!response.ok) throw new Error("Failed to load messages");
-            const data = await response.json();
-            return data;
+            // First check if the server is running by making a simple request
+            try {
+                const data = await fetchAPI(`${API_BASE_URL}/messages/${courseId}`);
+                hideLoading();
+                return data;
+            } catch (error) {
+                // If the error is likely due to server not running, provide clearer message
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    throw new Error('Server is not running. Please start the server first.');
+                }
+                throw error;
+            }
         } catch (error) {
             console.error("Error loading messages:", error);
-            return [];
-        } finally {
+            alert(`Failed to load messages: ${error.message}`);
             hideLoading();
+            return [];
         }
     }
 
-    // Save a new message
+    // Save a new message - simplified
     async function saveMessage(courseId, text) {
         showLoading();
         try {
-            const response = await fetch(`${API_BASE_URL}/messages`, {
+            const savedMessage = await fetchAPI(`${API_BASE_URL}/messages`, {
                 method: "POST",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ courseId, text })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courseId, text, userId })
             });
-            if (!response.ok) throw new Error("Failed to save message");
-            return await response.json();
+            hideLoading();
+            return savedMessage;
         } catch (error) {
             handleError(error);
-            return null;
-        } finally {
             hideLoading();
+            return null;
         }
     }
 
-    // Update a message
+    // Update a message - simplified
     async function updateMessage(messageId, updateData) {
         showLoading();
         try {
-            const response = await fetch(`${API_BASE_URL}/messages/${messageId}`, {
+            const updatedMessage = await fetchAPI(`${API_BASE_URL}/messages/${messageId}`, {
                 method: "PUT",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)
             });
-            if (!response.ok) throw new Error("Failed to update message");
-            return await response.json();
+            hideLoading();
+            return updatedMessage;
         } catch (error) {
             handleError(error);
-            return null;
-        } finally {
             hideLoading();
+            return null;
         }
     }
 
-    // Delete a message (mark as deleted)
+    // Delete a message - simplified
     async function deleteMessageApi(messageId) {
         showLoading();
         try {
-            const response = await fetch(`${API_BASE_URL}/messages/${messageId}`, {
+            await fetchAPI(`${API_BASE_URL}/messages/${messageId}`, {
                 method: "DELETE"
             });
-            if (!response.ok) throw new Error("Failed to delete message");
+            hideLoading();
             return true;
         } catch (error) {
             handleError(error);
-            return false;
-        } finally {
             hideLoading();
+            return false;
         }
     }
 
-    // Initialize the app
+    // Initialize the app - simplified to skip user preferences
     async function initApp() {
         showLoading();
         try {
-            // Load user preference
-            const savedCourse = await loadUserPreference();
-            if (savedCourse) {
-                lvSelect.value = savedCourse;
-                currentLV = savedCourse;
-            }
-
+            // Always use "mathematik" as the default course
+            currentLV = "mathematik";
+            lvSelect.value = currentLV;
+            
             // Load messages for current course
             messages = await loadMessages(currentLV);
             renderMessages(messages);
@@ -187,16 +178,17 @@ document.addEventListener("DOMContentLoaded", () => {
             setupEventListeners();
         } catch (error) {
             console.error("Error initializing app:", error);
+            alert(`Failed to initialize app: ${error.message}`);
         } finally {
             hideLoading();
         }
     }
 
     function setupEventListeners() {
-        // Course selection change
+        // Course selection change - simplified
         lvSelect.addEventListener("change", async () => {
             currentLV = lvSelect.value;
-            await saveUserPreference(currentLV);
+            // Skip saving user preference
             messages = await loadMessages(currentLV);
             renderMessages(messages);
         });
@@ -206,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             const messageText = chatInput.value.trim();
             if (messageText === "") return;
-            
+
             const savedMessage = await saveMessage(currentLV, messageText);
             if (savedMessage) {
                 messages.push(savedMessage);
@@ -336,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Focus the input
         editInput.focus();
     }
-    
+
     function renderLektorList() {
         lektorList.innerHTML = `<h3>Alle Lektor:innen</h3>`;
 
@@ -364,7 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
             `;
         }
     }
-    
+
     // Initialize the app
     initApp();
 });
