@@ -277,5 +277,60 @@ select {
     * {
         transition: all 0.2s ease-in-out;
     }
+
+    @media (max-width: 360px) {
+        h1 {
+            font-size: 1.2rem;
+        }
+    
+        .chat-container {
+            height: auto;
+            padding: 10px;
+        }
+    
+        .chat-input-container {
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px;
+        }
+    
+        .chat-input-container input,
+        .chat-input-container button {
+            width: 100%;
+            font-size: 0.9rem;
+            padding: 10px;
+        }
+    
+        .message {
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            max-width: 95%;
+        }
+    
+        .sidebar-widget {
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+    
+        .sidebar-widget button {
+            font-size: 0.9rem;
+            padding: 10px;
+        }
+    
+        .lektor-info-line {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    
+        .email-link {
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+    
+        select {
+            width: 100%;
+            font-size: 0.9rem;
+        }
+    }    
     
 }

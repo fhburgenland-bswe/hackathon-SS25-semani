@@ -5,6 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -12,9 +13,8 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Serve static files from the client directory
-// This serves files from the same directory as server.js
-app.use(express.static(path.join(__dirname, './')));
+// Serve static files from the client directory (one level up)
+app.use(express.static(path.join(__dirname, '../client')));
 
 // MongoDB Connection String
 const uri = "mongodb+srv://semani:O125E33Jo8C8qEsW@cluster0.azieuf5.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
@@ -23,9 +23,6 @@ const uri = "mongodb+srv://semani:O125E33Jo8C8qEsW@cluster0.azieuf5.mongodb.net/
 const dbName = 'chat_app';
 const messagesCollection = 'messages';
 const userPrefsCollection = 'user_preferences';
-
-// Default user ID for all users in the Live Share environment
-const DEFAULT_USER_ID = 'shared_user';
 
 // Function to create a new MongoDB client and connect
 async function connectToMongo() {
@@ -44,98 +41,96 @@ async function connectToMongo() {
   }
 }
 
-// Simplified connection function with error handling
-async function withDatabase(callback) {
+// Test the MongoDB connection on startup
+async function testConnection() {
   let client;
   try {
     client = await connectToMongo();
+    await client.db("admin").command({ ping: 1 });
+    console.log("MongoDB connection test successful");
+    
+    // Initialize collections if needed
     const db = client.db(dbName);
-    return await callback(db);
+    
+    // Make sure collections exist
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    if (!collectionNames.includes(messagesCollection)) {
+      await db.createCollection(messagesCollection);
+      console.log(`Created ${messagesCollection} collection`);
+    }
+    
+    if (!collectionNames.includes(userPrefsCollection)) {
+      await db.createCollection(userPrefsCollection);
+      console.log(`Created ${userPrefsCollection} collection`);
+    }
+    
   } catch (error) {
-    console.error("Database operation failed:", error);
-    throw error;
+    console.error("Failed to connect to MongoDB:", error);
   } finally {
     if (client) {
       await client.close();
+      console.log("Initial test connection closed");
     }
-  }
-}
-
-// Test the MongoDB connection on startup
-async function testConnection() {
-  try {
-    await withDatabase(async (db) => {
-      await db.command({ ping: 1 });
-      console.log("MongoDB connection test successful");
-      
-      // Make sure collections exist
-      const collections = await db.listCollections().toArray();
-      const collectionNames = collections.map(c => c.name);
-      
-      if (!collectionNames.includes(messagesCollection)) {
-        await db.createCollection(messagesCollection);
-        console.log(`Created ${messagesCollection} collection`);
-      }
-      
-      if (!collectionNames.includes(userPrefsCollection)) {
-        await db.createCollection(userPrefsCollection);
-        console.log(`Created ${userPrefsCollection} collection`);
-      }
-    });
-    return true;
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error);
-    return false;
   }
 }
 
 // Start the server after testing the connection
 testConnection()
-  .then((success) => {
-    if (success) {
-      app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
-        console.log(`Access the application at: http://localhost:${port}`);
-      });
-    } else {
-      console.error("Server not started due to MongoDB connection issues");
-      process.exit(1);
-    }
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+      console.log(`Access the application at: http://localhost:${port}`);
+    });
   })
   .catch(error => {
-    console.error("Server failed to start:", error);
+    console.error("Server failed to start due to MongoDB connection issues:", error);
     process.exit(1);
   });
 
-// Serve the HTML file for the root path - modified to look in current directory
+// Serve the HTML file for the root path
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, './index.html'));
+  res.sendFile(path.join(__dirname, '../client/index.html'));
 });
 
 // API Endpoints
 
 // Get messages for a specific course
 app.get('/api/messages/:courseId', async (req, res) => {
+  let client;
+  
   try {
+    client = await connectToMongo();
+    const db = client.db(dbName);
+    
     const courseId = req.params.courseId;
-    const messages = await withDatabase(async (db) => {
-      return await db.collection(messagesCollection)
-        .find({ courseId: courseId })
-        .sort({ timestamp: 1 })
-        .toArray();
-    });
+    const messages = await db.collection(messagesCollection)
+      .find({ courseId: courseId })
+      .sort({ timestamp: 1 })
+      .toArray();
     
     res.json(messages);
   } catch (error) {
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log("Connection closed after fetching messages");
+    }
   }
 });
 
 // Add a new message
 app.post('/api/messages', async (req, res) => {
+  let client;
+  
   try {
-    const { courseId, text } = req.body;
+    client = await connectToMongo();
+    const db = client.db(dbName);
+    
+    const { courseId, text, userId } = req.body;
     
     if (!courseId || !text) {
       return res.status(400).json({ error: 'CourseId and text are required' });
@@ -144,26 +139,33 @@ app.post('/api/messages', async (req, res) => {
     const newMessage = {
       courseId,
       text,
-      userId: DEFAULT_USER_ID, // Use default user ID for all
+      userId: userId || 'anonymous', // Make userId optional with a default
       id: new ObjectId().toString(),
       timestamp: new Date(),
       isDeleted: false
     };
     
-    await withDatabase(async (db) => {
-      await db.collection(messagesCollection).insertOne(newMessage);
-    });
-    
+    await db.collection(messagesCollection).insertOne(newMessage);
     res.status(201).json(newMessage);
   } catch (error) {
     console.error('Error adding message:', error);
     res.status(500).json({ error: 'Failed to add message' });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log("Connection closed after adding message");
+    }
   }
 });
 
 // Update a message
 app.put('/api/messages/:messageId', async (req, res) => {
+  let client;
+  
   try {
+    client = await connectToMongo();
+    const db = client.db(dbName);
+    
     const messageId = req.params.messageId;
     const { text, isDeleted, originalText } = req.body;
     
@@ -172,76 +174,120 @@ app.put('/api/messages/:messageId', async (req, res) => {
     if (isDeleted !== undefined) updateData.isDeleted = isDeleted;
     if (originalText !== undefined) updateData.originalText = originalText;
     
-    const updatedMessage = await withDatabase(async (db) => {
-      const result = await db.collection(messagesCollection).updateOne(
-        { id: messageId },
-        { $set: updateData }
-      );
-      
-      if (result.matchedCount === 0) {
-        throw new Error('Message not found');
-      }
-      
-      return await db.collection(messagesCollection).findOne({ id: messageId });
-    });
+    const result = await db.collection(messagesCollection).updateOne(
+      { id: messageId },
+      { $set: updateData }
+    );
     
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    const updatedMessage = await db.collection(messagesCollection).findOne({ id: messageId });
     res.json(updatedMessage);
   } catch (error) {
     console.error('Error updating message:', error);
-    if (error.message === 'Message not found') {
-      res.status(404).json({ error: 'Message not found' });
-    } else {
-      res.status(500).json({ error: 'Failed to update message' });
+    res.status(500).json({ error: 'Failed to update message' });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log("Connection closed after updating message");
     }
   }
 });
 
 // Delete a message (mark as deleted)
 app.delete('/api/messages/:messageId', async (req, res) => {
+  let client;
+  
   try {
+    client = await connectToMongo();
+    const db = client.db(dbName);
+    
     const messageId = req.params.messageId;
     
-    await withDatabase(async (db) => {
-      // First get the message to save its original text
-      const message = await db.collection(messagesCollection).findOne({ id: messageId });
-      
-      if (!message) {
-        throw new Error('Message not found');
+    // First get the message to save its original text
+    const message = await db.collection(messagesCollection).findOne({ id: messageId });
+    
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    const result = await db.collection(messagesCollection).updateOne(
+      { id: messageId },
+      { 
+        $set: { 
+          isDeleted: true,
+          originalText: message.originalText || message.text,
+          text: "Message deleted" 
+        } 
       }
-      
-      await db.collection(messagesCollection).updateOne(
-        { id: messageId },
-        { 
-          $set: { 
-            isDeleted: true,
-            originalText: message.originalText || message.text,
-            text: "Message deleted" 
-          } 
-        }
-      );
-    });
+    );
     
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting message:', error);
-    if (error.message === 'Message not found') {
-      res.status(404).json({ error: 'Message not found' });
-    } else {
-      res.status(500).json({ error: 'Failed to delete message' });
+    res.status(500).json({ error: 'Failed to delete message' });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log("Connection closed after deleting message");
     }
   }
 });
 
-// Get user preference (selected course) - now ignores userId and returns default
+// Get user preference (selected course)
 app.get('/api/preferences/:userId', async (req, res) => {
-  // Always return the default preference
-  res.json({ selectedCourse: 'mathematik' });
+  let client;
+  
+  try {
+    client = await connectToMongo();
+    const db = client.db(dbName);
+    
+    const userId = req.params.userId;
+    const preference = await db.collection(userPrefsCollection).findOne({ userId });
+    res.json(preference || { selectedCourse: 'mathematik' }); // Default if not found
+  } catch (error) {
+    console.error('Error fetching user preference:', error);
+    res.status(500).json({ error: 'Failed to fetch user preference' });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log("Connection closed after fetching preferences");
+    }
+  }
 });
 
-// Save user preference (selected course) - now just returns success without saving
+// Save user preference (selected course)
 app.post('/api/preferences', async (req, res) => {
-  // Just return success without actually saving
-  res.status(201).json({ success: true });
+  let client;
+  
+  try {
+    client = await connectToMongo();
+    const db = client.db(dbName);
+    
+    const { userId, selectedCourse } = req.body;
+    
+    if (!userId || !selectedCourse) {
+      return res.status(400).json({ error: 'UserId and selectedCourse are required' });
+    }
+    
+    await db.collection(userPrefsCollection).updateOne(
+      { userId },
+      { $set: { selectedCourse } },
+      { upsert: true }
+    );
+    
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error('Error saving user preference:', error);
+    res.status(500).json({ error: 'Failed to save user preference' });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log("Connection closed after saving preferences");
+    }
+  }
 });
 
 // Add error handler
