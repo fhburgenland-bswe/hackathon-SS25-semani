@@ -14,7 +14,7 @@ A simple, interactive chat application for educational courses. This web app all
 - Font Awesome 6.4.0
 
 **Setup**
-No server-side setup required as all data is stored in the browser's local storage.
+No local database setup is required - the application uses a central MongoDB cloud database (MongoDB Atlas) to store all chat data
 
 **Preview**
 
