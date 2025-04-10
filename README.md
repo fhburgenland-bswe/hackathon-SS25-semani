@@ -10,10 +10,11 @@ A simple, interactive chat application for educational courses. This web app all
 - HTML5
 - CSS3
 - JavaScript (Vanilla)
-- LocalStorage API
+- MongoDB cloud database (MongoDB Atlas)
 - Font Awesome 6.4.0
 
 **Setup**
+
 No local database setup is required - the application uses a central MongoDB cloud database (MongoDB Atlas) to store all chat data
 
 **Preview**
