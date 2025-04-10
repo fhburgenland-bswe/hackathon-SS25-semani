@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lehrveranstaltungen-Chat</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="../assets/img/favicon.png" type="image/png">
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+    <link rel="icon" type="image/png" media="(prefers-color-scheme: light)" href="../assets/img/favicon.png">
+    <link rel="icon" type="image/png" media="(prefers-color-scheme: dark)" href="../assets/img/favicon.png">
 </head>
+
 <body>
     <h1>Lehrveranstaltungen-Chat</h1>
-    
+
     <div class="container">
         <div class="chat-container">
             <div class="chat-header">
@@ -20,17 +24,17 @@
                     <option value="algorithmenUndProgrammiertechniken">Algorithmen und Programmiertechniken</option>
                 </select>
             </div>
-            
+
             <div id="chatMessages" class="chat-messages">
                 <!-- Messages will be displayed here -->
             </div>
-            
+
             <form id="chatForm" class="chat-input-container">
                 <input type="text" id="chatInput" placeholder="Nachricht eingeben..." autocomplete="off">
                 <button type="submit">Senden</button>
             </form>
         </div>
-        
+
         <div class="sidebar">
             <div class="sidebar-widget">
                 <button id="toggleLektorenBtn">📋 Lektoren anzeigen</button>
@@ -38,7 +42,7 @@
                     <!-- Lektoren list will be displayed here -->
                 </div>
             </div>
-            
+
             <div class="sidebar-widget">
                 <h3>Info</h3>
                 <p>Diese App verwendet MongoDB für die Datenspeicherung.</p>
@@ -46,9 +50,10 @@
             </div>
         </div>
     </div>
-    
+
     <div id="loading">Loading...</div>
-    
+
     <script src="client.js"></script>
 </body>
+
 </html>

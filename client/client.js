@@ -2,9 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Backend API URL - use fixed localhost URL for all users in Live Share
     const API_BASE_URL = "http://localhost:3000/api";
 
-    // Single shared user ID for all users in the Live Share environment
-    const userId = "shared_user";
-
     // Auto-refresh interval in milliseconds (5 seconds)
     const REFRESH_INTERVAL = 500;
 
@@ -42,6 +39,76 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let currentLV = "mathematik"; // Default
     let messages = [];
+    let userId = null;
+
+    // Prompt for username
+    function promptForUsername() {
+        const savedUsername = localStorage.getItem('chatUsername');
+        
+        if (savedUsername) {
+            userId = savedUsername;
+            return Promise.resolve(savedUsername);
+        }
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+
+            const usernameForm = document.createElement('div');
+            usernameForm.style.cssText = `
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                text-align: center;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            `;
+
+            usernameForm.innerHTML = `
+                <h2>Welcome to the Chat</h2>
+                <p>Please enter your username:</p>
+                <input type="text" id="usernameInput" style="padding: 10px; width: 200px; margin-bottom: 15px;">
+                <br>
+                <button id="usernameSubmit" style="padding: 10px 20px; background-color: #003366; color: white; border: none; border-radius: 5px; cursor: pointer;">Join Chat</button>
+            `;
+
+            overlay.appendChild(usernameForm);
+            document.body.appendChild(overlay);
+
+            const usernameInput = usernameForm.querySelector('#usernameInput');
+            const usernameSubmit = usernameForm.querySelector('#usernameSubmit');
+
+            usernameSubmit.addEventListener('click', () => {
+                const username = usernameInput.value.trim();
+                if (username) {
+                    // Generate a unique user ID
+                    userId = username + '_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('chatUsername', userId);
+                    document.body.removeChild(overlay);
+                    resolve(userId);
+                } else {
+                    alert('Please enter a username');
+                }
+            });
+
+            // Allow enter key submission
+            usernameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    usernameSubmit.click();
+                }
+            });
+        });
+    }
 
     // Show loading indicator
     function showLoading() {
@@ -228,8 +295,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize the app - simplified to skip user preferences
     async function initApp() {
-        showLoading();
         try {
+            // Prompt for username first
+            await promptForUsername();
+
+            showLoading();
+
             // Always use "mathematik" as the default course
             currentLV = "mathematik";
             lvSelect.value = currentLV;
@@ -347,7 +418,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Add user ID (first 6 chars only) - with safety check for undefined
         const userSpan = document.createElement("small");
         // Check if userId exists and handle the case where it's undefined
-        const userIdText = messageObj.userId ? messageObj.userId.substring(0, 6) : 'anonymous';
+        const userIdText = messageObj.userId ? messageObj.userId.substring(0, 20) : 'anonymous';
         userSpan.textContent = ` (${userIdText}): `;
         userSpan.classList.add("message-user");
         message.appendChild(userSpan);

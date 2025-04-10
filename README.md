@@ -1,5 +1,4 @@
 # hackathon-SS25-semani
-<<<<<<< HEAD
 A simple, interactive chat application for educational courses. This web app allows students to discuss different subjects in separate chat rooms, with the ability to edit and delete messages.
 
 **Features**
@@ -30,12 +29,3 @@ Ein einfacher, lokaler Chat für verschiedene Lehrveranstaltungen – gebaut mit
 - ✅ Speicherung der Nachrichten im `localStorage`
 - ✅ Benutzerfreundliches, modernes Design
 - ✅ Vollständig clientseitig (kein Backend notwendig)
-
----
-
-## 📸 Vorschau
-
-
-## 📂 Projektstruktur
-
->>>>>>> 9d839292c779203414122b8532555df6870ab8b2
