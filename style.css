@@ -35,8 +35,11 @@ header h1 {
 header .header-container {
     display: flex;
     justify-content: center;
+    align-items: center;
 
     img {
+        width: 32px;
+        height: 32px;
         filter: invert(1);
         margin-left: 1em;
     }
@@ -118,3 +121,5 @@ button {
 button:hover {
     background-color: #005599;
 }
+
+

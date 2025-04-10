@@ -14,17 +14,20 @@
 </head>
 
 <body>
-
     <header>
         <div class="header-container">
             <h1>Lehrveranstaltungen Chat</h1>
             <img src="./assets/img/favicon.png" alt="Chat">
         </div>
+        
+        <div id="lektorList" class="lektor-list" style="display: none;"></div>
+        
         <select id="lvSelect">
             <option value="Mathematik">Mathematik</option>
             <option value="Betriebssysteme">Betriebssysteme</option>
             <option value="Projektmanagement">Projektmanagement</option>
         </select>
+        <button id="toggleLektorenBtn">📋 Lektoren anzeigen</button>
     </header>
 
     <main>
